@@ -3,7 +3,7 @@ import TrafficStream from './components/TrafficStream.jsx'
 import FlagManager from './components/FlagManager.jsx'
 import ChaosControls from './components/ChaosControls.jsx'
 import DatabaseDemo from './components/DatabaseDemo.jsx'
-import { Server, Globe, GitBranch, Layers, ShieldCheck } from 'lucide-react'
+import { Server, Layers } from 'lucide-react'
 
 export default function App() {
   const [lastResponse, setLastResponse] = useState(null)

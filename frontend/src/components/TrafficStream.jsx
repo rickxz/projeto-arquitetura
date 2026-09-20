@@ -3,7 +3,7 @@ import { Activity, Play, Pause, RotateCcw, Server, AlertTriangle, CheckCircle2, 
 
 export default function TrafficStream({ onLastResponse }) {
   const [isRunning, setIsRunning] = useState(true)
-  const [intervalMs, setIntervalMs] = useState(600) // ~1.6 req/s
+  const [intervalMs, setIntervalMs] = useState(1000) // precisa bater com uma das opcoes do <select>
   const [history, setHistory] = useState([])
   const [stats, setStats] = useState({
     total: 0,
@@ -13,20 +13,29 @@ export default function TrafficStream({ onLastResponse }) {
   })
 
   const timerRef = useRef(null)
+  const seqRef = useRef(0)
 
   const sendRequest = async () => {
     const startTime = performance.now()
     try {
       const res = await fetch('/api/version')
       const latency = Math.round(performance.now() - startTime)
-      const data = await res.json()
-      
+      // Erros do proprio Nginx (502/504) vem em HTML: sem este fallback o
+      // res.json() estoura e a linha aparece como "503 gateway/offline".
+      const raw = await res.text()
+      let data = {}
+      try {
+        data = raw ? JSON.parse(raw) : {}
+      } catch {
+        data = { error: raw.slice(0, 120) }
+      }
+
       const isSuccess = res.ok
       const isBlue = data.color === 'blue' || (data.version && data.version.includes('v1'))
       const isGreen = data.color === 'green' || (data.version && data.version.includes('v2'))
 
       const entry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: ++seqRef.current,
         time: new Date().toLocaleTimeString(),
         status: res.status,
         success: isSuccess,
@@ -51,9 +60,9 @@ export default function TrafficStream({ onLastResponse }) {
     } catch (err) {
       const latency = Math.round(performance.now() - startTime)
       const entry = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: ++seqRef.current,
         time: new Date().toLocaleTimeString(),
-        status: 503,
+        status: 0,
         success: false,
         version: 'N/A',
         color: 'red',
@@ -112,6 +121,9 @@ export default function TrafficStream({ onLastResponse }) {
           <div className="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-lg text-xs text-slate-300 border border-slate-700">
             <span>Freq:</span>
             <select
+              id="frequencia"
+              name="frequencia"
+              aria-label="Frequência de requisições"
               value={intervalMs}
               onChange={(e) => setIntervalMs(Number(e.target.value))}
               className="bg-transparent font-semibold text-white focus:outline-none cursor-pointer"
@@ -253,7 +265,7 @@ export default function TrafficStream({ onLastResponse }) {
                         : 'bg-rose-950/60 text-rose-400 border border-rose-700/40'
                     }`}>
                       {req.success ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                      {req.status}
+                      {req.status || 'ERR'}
                     </span>
                   </td>
                   <td className="py-2 px-3 font-semibold text-slate-200">{req.version}</td>
