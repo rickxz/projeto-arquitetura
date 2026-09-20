@@ -10,10 +10,20 @@ services:
     environment:
       - DATABASE_URL=postgres://unleash_user:unleash_pass@unleash-db:5432/unleash
       - DATABASE_SSL=false
-      - INIT_FRONTEND_API_TOKENS=*:default.1234567890abcdef
-      - INIT_CLIENT_API_TOKENS=*:default.1234567890abcdef
+      # Segredos distintos: o Unleash usa o segredo como chave, então tokens
+      # iguais criam um só (e ele nasce como 'frontend', que o endpoint
+      # /api/client/features rejeita com 403). O ambiente também precisa
+      # existir - esta versão tem 'development' e 'production', não 'default'.
+      - INIT_FRONTEND_API_TOKENS=*:development.unleash-lab-frontend-token
+      - INIT_CLIENT_API_TOKENS=*:development.unleash-lab-client-token
     depends_on:
       - unleash-db
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4242/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
       - lab-network
 

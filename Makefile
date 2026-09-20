@@ -36,6 +36,7 @@ start:
 
 stop:
 	docker compose down
+	-@docker compose -f docker-compose.unleash.yml down 2>/dev/null || true
 
 status:
 	@echo "--- Containers em Execução ---"
@@ -81,5 +82,8 @@ start-unleash:
 stop-unleash:
 	docker compose -f docker-compose.unleash.yml down
 
+# O volume do Unleash guarda os tokens de API; se ele sobreviver a um clean,
+# um start-unleash seguinte reaproveita tokens antigos e a integracao falha.
 clean:
 	docker compose down -v
+	-@docker compose -f docker-compose.unleash.yml down -v 2>/dev/null || true

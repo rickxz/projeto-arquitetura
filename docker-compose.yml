@@ -40,6 +40,7 @@ services:
       - DB_USER=app_user
       - DB_PASSWORD=app_pass
       - UNLEASH_URL=http://unleash:4242/api/client/features
+      - UNLEASH_API_TOKEN=*:development.unleash-lab-client-token
     depends_on:
       db:
         condition: service_healthy
@@ -71,6 +72,7 @@ services:
       - DB_USER=app_user
       - DB_PASSWORD=app_pass
       - UNLEASH_URL=http://unleash:4242/api/client/features
+      - UNLEASH_API_TOKEN=*:development.unleash-lab-client-token
     depends_on:
       db:
         condition: service_healthy

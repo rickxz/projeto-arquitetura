@@ -8,10 +8,19 @@ import { Server, Layers } from 'lucide-react'
 export default function App() {
   const [lastResponse, setLastResponse] = useState(null)
 
+  // Experiment Toggle: o backend informa qual layout está ativo e a interface
+  // muda sem novo deploy - é a demonstração do Bloco 5 da aula.
+  const behaviour = lastResponse?.behaviour || {}
+  const layoutModerno = behaviour.layout === 'moderno'
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Top Navigation Bar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+      <header className={`border-b sticky top-0 z-50 backdrop-blur transition-colors duration-500 ${
+        layoutModerno
+          ? 'border-fuchsia-500/40 bg-gradient-to-r from-fuchsia-950/70 via-indigo-950/70 to-sky-950/70'
+          : 'border-slate-800/80 bg-slate-900/60'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -33,6 +42,16 @@ export default function App() {
               <Server className="w-4 h-4 text-slate-400" />
               <span className="text-slate-400">Última Resposta:</span>
             </div>
+            {layoutModerno && (
+              <span className="px-2 py-0.5 rounded bg-fuchsia-600/30 text-fuchsia-200 border border-fuchsia-500/40 font-semibold">
+                layout moderno
+              </span>
+            )}
+            {behaviour.checkout === 'em-etapas' && (
+              <span className="px-2 py-0.5 rounded bg-blue-600/30 text-blue-200 border border-blue-500/40 font-semibold">
+                checkout em etapas
+              </span>
+            )}
             {lastResponse ? (
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
