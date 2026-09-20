@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # Roteador / Load Balancer central da arquitetura
+  proxy:
+    image: nginx:alpine
+    container_name: lab-proxy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/upstreams:/etc/nginx/upstreams:ro
+    depends_on:
+      - api-blue
+      - frontend
+    networks:
+      - lab-network
+
+  # Backend Clojure - Versão 1 (Blue / Baseline)
+  api-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lab-api-blue
+    restart: always
+    environment:
+      - PORT=3000
+      - APP_VERSION=v1.0.0
+      - APP_COLOR=blue
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=app_db
+      - DB_USER=app_user
+      - DB_PASSWORD=app_pass
+      - UNLEASH_URL=http://unleash:4242/api/client/features
+    depends_on:
+      - db
+    networks:
+      - lab-network
+
+  # Backend Clojure - Versão 2 (Green / Canary)
+  api-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lab-api-green
+    restart: always
+    environment:
+      - PORT=3000
+      - APP_VERSION=v2.0.0
+      - APP_COLOR=green
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=app_db
+      - DB_USER=app_user
+      - DB_PASSWORD=app_pass
+      - UNLEASH_URL=http://unleash:4242/api/client/features
+    depends_on:
+      - db
+    networks:
+      - lab-network
+
+  # Frontend React com Tailwind CSS
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lab-frontend
+    restart: always
+    networks:
+      - lab-network
+
+  # Banco de Dados compartilhado PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: lab-postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=app_user
+      - POSTGRES_PASSWORD=app_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/resources/db/migration.sql:/docker-entrypoint-initdb.d/migration.sql:ro
+    networks:
+      - lab-network
+
+volumes:
+  postgres_data:
+
+networks:
+  lab-network:
+    name: lab-network
