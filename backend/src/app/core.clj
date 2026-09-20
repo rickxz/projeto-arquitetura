@@ -80,6 +80,19 @@
                                  "Falha simulada DESATIVADA nesta instancia.")}))
     (catch Exception e
       (json-response {:error (str "Corpo invalido: " (.getMessage e))} 400))))
+  (let [body (try (let [s (slurp (:body req))]
+                    (when (not (empty? s))
+                      (json/parse-string s true)))
+                  (catch Exception _ nil))
+        target-enabled (get body :enabled)
+        new-val (if (some? target-enabled)
+                  (reset! fault-injected? (boolean target-enabled))
+                  (swap! fault-injected? not))]
+    (json-response {:fault_injected new-val
+                    :hostname (get-hostname)
+                    :message (if new-val
+                               "Falha simulada ATIVADA nesta instancia."
+                               "Falha simulada DESATIVADA nesta instancia.")})))
 
 (defn list-items-handler [_req]
   (json-response {:items (db/list-items)}))

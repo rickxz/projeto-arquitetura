@@ -30,6 +30,12 @@ export default function FlagManager({ onFlagChange }) {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (onFlagChange) {
+      onFlagChange(flags)
+    }
+  }, [flags, onFlagChange])
+
   const toggleFlag = async (flagName, currentVal) => {
     setLoadingFlag(flagName)
     try {
