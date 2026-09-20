@@ -30,6 +30,12 @@ export default function FlagManager({ onFlagChange }) {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (onFlagChange) {
+      onFlagChange(flags)
+    }
+  }, [flags, onFlagChange])
+
   const toggleFlag = async (flagName, currentVal) => {
     setLoadingFlag(flagName)
     try {
@@ -44,10 +50,14 @@ export default function FlagManager({ onFlagChange }) {
           ...prev,
           [flagName]: {
             ...prev[flagName],
-            enabled: data.enabled
+            enabled: data.enabled,
+            // Atualização otimista: só vale quando a flag é local. Se o
+            // Unleash comanda, o próximo poll traz o valor verdadeiro.
+            effective: prev[flagName]?.source === 'unleash'
+              ? prev[flagName]?.effective
+              : data.enabled
           }
         }))
-        if (onFlagChange) onFlagChange(flagName, data.enabled)
       }
     } catch (err) {
       console.error('Erro ao alternar flag:', err)

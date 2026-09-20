@@ -102,7 +102,6 @@
                                  "Falha simulada DESATIVADA nesta instancia.")}))
     (catch Exception e
       (json-response {:error (str "Corpo invalido: " (.getMessage e))} 400))))
-
 (defn list-items-handler [_req]
   ;; Ops Toggle: em modo degradado a consulta é encurtada para aliviar o banco.
   (let [degraded? (flags/enabled? "ops_degraded_mode")
