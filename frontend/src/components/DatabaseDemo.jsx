@@ -5,6 +5,7 @@ export default function DatabaseDemo() {
   const [items, setItems] = useState([])
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const fetchItems = async () => {
     try {
@@ -33,11 +34,16 @@ export default function DatabaseDemo() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim() })
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         setTitle('')
+        setError(null)
         fetchItems()
+      } else {
+        setError(data.error || `Falha ao salvar (HTTP ${res.status})`)
       }
     } catch (err) {
+      setError(err.message)
       console.error('Erro ao salvar item:', err)
     } finally {
       setLoading(false)
@@ -68,6 +74,8 @@ export default function DatabaseDemo() {
       <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
         <input
           type="text"
+          id="novo-item"
+          name="novo-item"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Digite um registro para salvar no PostgreSQL..."
@@ -82,6 +90,12 @@ export default function DatabaseDemo() {
           Salvar
         </button>
       </form>
+
+      {error && (
+        <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200">
+          {error}
+        </div>
+      )}
 
       {/* Items List */}
       <div className="mt-4 max-h-48 overflow-y-auto border border-slate-800 rounded-lg divide-y divide-slate-800/60 font-mono text-xs">

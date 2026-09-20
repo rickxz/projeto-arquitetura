@@ -59,13 +59,13 @@ export default function FlagManager({ onFlagChange }) {
   const getTypeBadge = (type) => {
     switch (type) {
       case 'release':
-        return <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Release Toggle</span>
+        return <span className="text-[10px] uppercase font-bold whitespace-nowrap px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Release Toggle</span>
       case 'experiment':
-        return <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">Experiment (A/B)</span>
+        return <span className="text-[10px] uppercase font-bold whitespace-nowrap px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">Experiment (A/B)</span>
       case 'permission':
-        return <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Permission</span>
+        return <span className="text-[10px] uppercase font-bold whitespace-nowrap px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">Permission</span>
       case 'ops':
-        return <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">Ops (Disjuntor)</span>
+        return <span className="text-[10px] uppercase font-bold whitespace-nowrap px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">Ops (Disjuntor)</span>
       default:
         return null
     }
@@ -133,7 +133,7 @@ export default function FlagManager({ onFlagChange }) {
                   : 'bg-slate-800/30 border-slate-800 text-slate-400'
               }`}
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {getIcon(flag.type)}
                   <span className="font-mono font-bold text-sm text-white">{key}</span>

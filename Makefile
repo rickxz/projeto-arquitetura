@@ -66,10 +66,10 @@ canary-100:
 	@sh ./scripts/set-canary.sh 100
 
 fault-v2:
-	@sh ./scripts/toggle-fault.sh api-green
+	@sh ./scripts/toggle-fault.sh api-green on
 
 heal-v2:
-	@sh ./scripts/toggle-fault.sh api-green
+	@sh ./scripts/toggle-fault.sh api-green off
 
 rolling:
 	@sh ./scripts/rolling-update.sh

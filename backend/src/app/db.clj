@@ -1,5 +1,6 @@
 (ns app.db
   (:require [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
             [next.jdbc.sql :as sql]))
 
 (def db-config
@@ -10,50 +11,77 @@
    :user     (or (System/getenv "DB_USER") "app_user")
    :password (or (System/getenv "DB_PASSWORD") "app_pass")})
 
-;; Fallback em memória para caso o DB ainda esteja inicializando
+;; O dashboard consome as chaves simples (id/title/created_at). Sem este
+;; builder o next.jdbc devolve :items/id, :items/title... e o JSON chega no
+;; React como "items/title", deixando a lista de registros em branco.
+(def query-opts {:builder-fn rs/as-unqualified-maps})
+
+;; Fallback em memória para caso o PostgreSQL esteja indisponível
 (def in-memory-items (atom [{:id 1 :title "Primeiro Item (Demo)" :created_at (str (java.time.Instant/now))}]))
+(def ^:private in-memory-seq (atom 1))
+
+(def ^:private datasource (delay (jdbc/get-datasource db-config)))
 
 (defn get-datasource []
   (try
-    (jdbc/get-datasource db-config)
+    @datasource
     (catch Exception _
       nil)))
 
-(defn init-db! []
-  (try
-    (let [ds (get-datasource)]
-      (when ds
-        (jdbc/execute! ds ["
-          CREATE TABLE IF NOT EXISTS items (
-            id SERIAL PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-          );
-        "])
-        (println "Banco de dados inicializado com sucesso.")))
-    (catch Exception e
-      (println "Aviso: Nao foi possivel conectar ao PostgreSQL imediatamente, usando fallback em memoria." (.getMessage e)))))
+(defn- add-in-memory! [title]
+  (let [item {:id (swap! in-memory-seq inc)
+              :title title
+              :created_at (str (java.time.Instant/now))}]
+    (swap! in-memory-items conj item)
+    item))
+
+(defn connected?
+  "Readiness real: só responde true quando o banco aceita uma consulta."
+  []
+  (boolean
+   (try
+     (when-let [ds (get-datasource)]
+       (jdbc/execute-one! ds ["SELECT 1"] query-opts)
+       true)
+     (catch Exception _ false))))
+
+(defn init-db!
+  "Cria o schema, aguardando o PostgreSQL subir. Devolve true quando conecta."
+  ([] (init-db! 15 2000))
+  ([attempts delay-ms]
+   (loop [remaining attempts]
+     (let [result (try
+                    (when-let [ds (get-datasource)]
+                      (jdbc/execute! ds ["
+                        CREATE TABLE IF NOT EXISTS items (
+                          id SERIAL PRIMARY KEY,
+                          title VARCHAR(255) NOT NULL,
+                          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                        );
+                      "])
+                      (println "Banco de dados inicializado com sucesso.")
+                      true)
+                    (catch Exception e
+                      (println "Aguardando PostgreSQL..." (.getMessage e))
+                      false))]
+       (cond
+         result true
+         (<= remaining 1) (do (println "Aviso: seguindo com o fallback em memoria.") false)
+         :else (do (Thread/sleep delay-ms)
+                   (recur (dec remaining))))))))
 
 (defn list-items []
   (try
-    (let [ds (get-datasource)]
-      (if ds
-        (jdbc/execute! ds ["SELECT id, title, created_at FROM items ORDER BY id DESC LIMIT 20"])
-        @in-memory-items))
+    (if-let [ds (get-datasource)]
+      (jdbc/execute! ds ["SELECT id, title, created_at FROM items ORDER BY id DESC LIMIT 20"] query-opts)
+      (reverse @in-memory-items))
     (catch Exception _
-      @in-memory-items)))
+      (reverse @in-memory-items))))
 
 (defn add-item! [title]
   (try
-    (let [ds (get-datasource)]
-      (if ds
-        (sql/insert! ds :items {:title title})
-        (let [new-id (inc (count @in-memory-items))
-              item   {:id new-id :title title :created_at (str (java.time.Instant/now))}]
-          (swap! in-memory-items conj item)
-          item)))
+    (if-let [ds (get-datasource)]
+      (sql/insert! ds :items {:title title} query-opts)
+      (add-in-memory! title))
     (catch Exception _
-      (let [new-id (inc (count @in-memory-items))
-            item   {:id new-id :title title :created_at (str (java.time.Instant/now))}]
-        (swap! in-memory-items conj item)
-        item))))
+      (add-in-memory! title))))
