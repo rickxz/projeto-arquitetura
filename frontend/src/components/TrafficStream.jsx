@@ -43,7 +43,8 @@ export default function TrafficStream({ onLastResponse }) {
         color: data.color || (isSuccess ? 'blue' : 'gray'),
         hostname: data.hostname || 'unknown',
         latency,
-        error: data.error || null
+        error: data.error || null,
+        behaviour: data.behaviour || null
       }
 
       setHistory(prev => [entry, ...prev.slice(0, 24)])

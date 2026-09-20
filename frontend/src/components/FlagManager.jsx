@@ -8,7 +8,7 @@ export default function FlagManager({ onFlagChange }) {
     vip_discount: { enabled: false, type: 'permission', description: 'Cupom VIP de 20% para clientes selecionados' },
     ops_degraded_mode: { enabled: false, type: 'ops', description: 'Desliga busca pesada durante pico de tráfego' }
   })
-  const [unleashInfo, setUnleashInfo] = useState({ configured: false, connection: 'checking' })
+  const [unleashInfo, setUnleashInfo] = useState({ configured: false, connection: 'checking', features: [] })
   const [loadingFlag, setLoadingFlag] = useState(null)
 
   const fetchFlags = async () => {
@@ -170,6 +170,42 @@ export default function FlagManager({ onFlagChange }) {
           )
         })}
       </div>
+
+      {/* Flags vindas do servidor Unleash */}
+      {unleashInfo.connection === 'connected' && (
+        <div className="mb-6 border border-emerald-900/50 bg-emerald-950/20 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ExternalLink className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-bold text-emerald-300">Flags do servidor Unleash</span>
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              centralizadas
+            </span>
+          </div>
+          {unleashInfo.features.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              Conectado, mas nenhuma flag cadastrada ainda. Crie uma em{' '}
+              <a href="http://localhost:4242" target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300">
+                localhost:4242
+              </a>{' '}
+              (ambiente <span className="font-mono">development</span>) e ela aparece aqui em até 10s.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {unleashInfo.features.map((f) => (
+                <div key={f.name} className="flex items-center justify-between gap-2 text-xs bg-slate-900/60 rounded px-3 py-2">
+                  <span className="font-mono font-bold text-white">{f.name}</span>
+                  <div className="flex items-center gap-2">
+                    {f.type && <span className="text-[10px] uppercase text-slate-400">{f.type}</span>}
+                    <span className={`text-[11px] font-semibold ${f.enabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {f.enabled ? '● Ativa' : '○ Inativa'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Concept Box for Students */}
       <div className="bg-indigo-950/30 border border-indigo-900/50 rounded-lg p-3 text-xs text-indigo-200/90 flex items-start gap-2.5">

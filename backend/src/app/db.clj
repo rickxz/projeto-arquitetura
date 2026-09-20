@@ -70,13 +70,25 @@
          :else (do (Thread/sleep delay-ms)
                    (recur (dec remaining))))))))
 
-(defn list-items []
+(def default-limit 20)
+
+(defn list-items
+  ([] (list-items default-limit))
+  ([limit]
+   (try
+     (if-let [ds (get-datasource)]
+       (jdbc/execute! ds ["SELECT id, title, created_at FROM items ORDER BY id DESC LIMIT ?" limit] query-opts)
+       (take limit (reverse @in-memory-items)))
+     (catch Exception _
+       (take limit (reverse @in-memory-items))))))
+
+(defn count-items []
   (try
     (if-let [ds (get-datasource)]
-      (jdbc/execute! ds ["SELECT id, title, created_at FROM items ORDER BY id DESC LIMIT 20"] query-opts)
-      (reverse @in-memory-items))
+      (:count (jdbc/execute-one! ds ["SELECT COUNT(*) AS count FROM items"] query-opts))
+      (count @in-memory-items))
     (catch Exception _
-      (reverse @in-memory-items))))
+      (count @in-memory-items))))
 
 (defn add-item! [title]
   (try

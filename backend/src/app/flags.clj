@@ -71,6 +71,14 @@
                :connection (:status unleash-info)
                :features (get-in unleash-info [:data :features] [])}}))
 
+(defn enabled?
+  "Consulta usada pelos handlers para mudar comportamento em tempo de execução."
+  [flag-name]
+  (boolean (get-in @local-flags [flag-name :enabled])))
+
+(defn known-flag? [flag-name]
+  (contains? @local-flags flag-name))
+
 (defn toggle-local-flag! [flag-name enabled]
   (if (contains? @local-flags flag-name)
     (let [updated (swap! local-flags assoc-in [flag-name :enabled] (boolean enabled))]

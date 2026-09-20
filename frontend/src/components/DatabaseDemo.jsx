@@ -6,6 +6,7 @@ export default function DatabaseDemo() {
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [meta, setMeta] = useState({ degraded: false, total: null, limit: null, discount: 0 })
 
   const fetchItems = async () => {
     try {
@@ -13,14 +14,24 @@ export default function DatabaseDemo() {
       if (res.ok) {
         const data = await res.json()
         setItems(data.items || [])
+        setMeta({
+          degraded: !!data.degraded,
+          total: data.total ?? null,
+          limit: data.limit ?? null,
+          discount: data.discount_percent || 0
+        })
       }
     } catch (err) {
       console.error('Erro ao buscar dados do banco:', err)
     }
   }
 
+  // Poll curto para que o efeito de um Ops Toggle (ou uma escrita feita pela
+  // outra versão) apareça sem precisar clicar em Recarregar.
   useEffect(() => {
     fetchItems()
+    const interval = setInterval(fetchItems, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleSubmit = async (e) => {
@@ -90,6 +101,20 @@ export default function DatabaseDemo() {
           Salvar
         </button>
       </form>
+
+      {meta.degraded && (
+        <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs text-rose-200">
+          <strong>Ops Toggle ativo (disjuntor):</strong> consulta reduzida a {meta.limit} registros
+          {meta.total !== null && ` de ${meta.total}`} para aliviar o banco. Desligue
+          <span className="font-mono"> ops_degraded_mode </span> para voltar ao normal.
+        </div>
+      )}
+
+      {meta.discount > 0 && (
+        <div className="mt-3 p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200">
+          <strong>Permission Toggle ativo:</strong> a API está devolvendo desconto VIP de {meta.discount}%.
+        </div>
+      )}
 
       {error && (
         <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200">

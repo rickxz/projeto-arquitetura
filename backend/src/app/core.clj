@@ -29,13 +29,31 @@
               "Access-Control-Allow-Headers" "Content-Type, Authorization"}
     :body (json/generate-string data)}))
 
+(def ^:private invalid-body ::invalid-body)
+
 (defn- parse-json-body
-  "Devolve o corpo JSON como mapa, ou nil quando a requisição não traz corpo."
+  "Devolve o corpo JSON como mapa, nil quando não há corpo, ou ::invalid-body
+  quando o JSON é inválido - erro do cliente, não do servidor."
   [req]
-  (when-let [body (:body req)]
+  (if-let [body (:body req)]
     (let [raw (slurp body)]
       (when-not (str/blank? raw)
-        (json/parse-string raw true)))))
+        (try
+          (let [parsed (json/parse-string raw true)]
+            (if (map? parsed) parsed invalid-body))
+          (catch Exception _ invalid-body))))
+    nil))
+
+(def ^:private degraded-limit 5)
+
+(defn- active-behaviour
+  "Efeito de cada feature flag na resposta da API. É o que permite mostrar em
+  aula que o comportamento muda sem novo deploy (Seção 6 do Guia)."
+  []
+  {:checkout (if (flags/enabled? "new_checkout") "em-etapas" "classico")
+   :layout   (if (flags/enabled? "modern_layout") "moderno" "classico")
+   :discount (if (flags/enabled? "vip_discount") 20 0)
+   :degraded (flags/enabled? "ops_degraded_mode")})
 
 ;; Handlers
 (defn version-handler [_req]
@@ -50,7 +68,8 @@
                     :color     (or (System/getenv "APP_COLOR") "blue")
                     :hostname  (get-hostname)
                     :uptime_ms (- (System/currentTimeMillis) start-time)
-                    :timestamp (str (java.time.Instant/now))})))
+                    :timestamp (str (java.time.Instant/now))
+                    :behaviour (active-behaviour)})))
 
 (defn health-handler [_req]
   (if @fault-injected?
@@ -69,7 +88,10 @@
 
 (defn toggle-fault-handler [req]
   (try
-    (let [desired (:enabled (parse-json-body req))
+    (let [parsed (parse-json-body req)
+          _ (when (= parsed invalid-body)
+              (throw (ex-info "JSON invalido" {})))
+          desired (:enabled parsed)
           new-val (if (nil? desired)
                     (swap! fault-injected? not)
                     (reset! fault-injected? (boolean desired)))]
@@ -82,20 +104,37 @@
       (json-response {:error (str "Corpo invalido: " (.getMessage e))} 400))))
 
 (defn list-items-handler [_req]
-  (json-response {:items (db/list-items)}))
+  ;; Ops Toggle: em modo degradado a consulta é encurtada para aliviar o banco.
+  (let [degraded? (flags/enabled? "ops_degraded_mode")
+        limit     (if degraded? degraded-limit db/default-limit)]
+    (json-response (cond-> {:items (db/list-items limit)
+                            :total (db/count-items)
+                            :limit limit
+                            :degraded degraded?}
+                     (flags/enabled? "vip_discount") (assoc :discount_percent 20)))))
 
 (defn create-item-handler [req]
   (try
-    (let [title (some-> (parse-json-body req) :title str/trim)]
+    (let [parsed (parse-json-body req)
+          raw-title (:title parsed)]
       (cond
-        (str/blank? title)
-        (json-response {:error "Titulo e obrigatorio"} 400)
+        (= parsed invalid-body)
+        (json-response {:error "Corpo da requisicao nao e um JSON valido"} 400)
 
-        (> (count title) max-title-length)
-        (json-response {:error (str "Titulo deve ter no maximo " max-title-length " caracteres")} 400)
+        (and (some? raw-title) (not (string? raw-title)))
+        (json-response {:error "Titulo deve ser texto"} 400)
 
         :else
-        (json-response {:success true :item (db/add-item! title)} 201)))
+        (let [title (some-> raw-title str/trim)]
+          (cond
+            (str/blank? title)
+            (json-response {:error "Titulo e obrigatorio"} 400)
+
+            (> (count title) max-title-length)
+            (json-response {:error (str "Titulo deve ter no maximo " max-title-length " caracteres")} 400)
+
+            :else
+            (json-response {:success true :item (db/add-item! title)} 201)))))
     (catch Exception e
       (json-response {:error (.getMessage e)} 500))))
 
@@ -105,10 +144,20 @@
 (defn toggle-feature-handler [req]
   (try
     (let [parsed (parse-json-body req)
-          result (flags/toggle-local-flag! (:flag parsed) (:enabled parsed))]
-      (if (:success result)
-        (json-response result)
-        (json-response result 404)))
+          flag (:flag parsed)
+          enabled (:enabled parsed)]
+      (cond
+        (or (= parsed invalid-body) (nil? parsed))
+        (json-response {:error "Informe {\"flag\": nome, \"enabled\": true|false}"} 400)
+
+        (not (flags/known-flag? flag))
+        (json-response {:success false :error (str "Flag " flag " nao encontrada.")} 404)
+
+        (not (boolean? enabled))
+        (json-response {:error "O campo 'enabled' deve ser true ou false"} 400)
+
+        :else
+        (json-response (flags/toggle-local-flag! flag enabled))))
     (catch Exception e
       (json-response {:error (.getMessage e)} 500))))
 
