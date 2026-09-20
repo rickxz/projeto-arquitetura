@@ -12,7 +12,7 @@
          "ops_degraded_mode" {:enabled false :type "ops"        :description "Desliga busca pesada durante pico de trafego"}}))
 
 (def unleash-url (or (System/getenv "UNLEASH_URL") "http://unleash:4242/api/client/features"))
-(def unleash-token (or (System/getenv "UNLEASH_API_TOKEN") "*:default.1234567890abcdef"))
+(def unleash-token (or (System/getenv "UNLEASH_API_TOKEN") "*:development.unleash-lab-client-token"))
 
 ;; Um HttpClient por processo: cada build cria selector thread e pool proprios.
 (def ^:private http-client
@@ -63,18 +63,40 @@
   (refresh-unleash!)
   @unleash-state)
 
+(defn unleash-flag
+  "Procura a flag no último snapshot do Unleash. Só considera quando a conexão
+  está de pé - se o servidor cai, o laboratório volta sozinho para o modo local."
+  [flag-name]
+  (when (= "connected" (:status @unleash-state))
+    (->> (get-in @unleash-state [:data :features] [])
+         (filter #(= flag-name (:name %)))
+         first)))
+
+(defn flag-source [flag-name]
+  (if (unleash-flag flag-name) "unleash" "local"))
+
+(defn enabled?
+  "Consulta usada pelos handlers para mudar comportamento em tempo de execução.
+  Modo dual: quando a mesma flag existe no Unleash, o servidor central manda -
+  é ele a fonte da verdade. Sem Unleash, vale o estado local em memória."
+  [flag-name]
+  (if-let [remota (unleash-flag flag-name)]
+    (boolean (:enabled remota))
+    (boolean (get-in @local-flags [flag-name :enabled]))))
+
 (defn get-all-flags []
-  (let [unleash-info (query-unleash)]
+  (let [unleash-info (query-unleash)
+        locais (reduce-kv (fn [acc nome dados]
+                            (assoc acc nome (assoc dados
+                                                   :effective (enabled? nome)
+                                                   :source (flag-source nome))))
+                          {}
+                          @local-flags)]
     {:mode "dual"
-     :local @local-flags
+     :local locais
      :unleash {:configured (some? (System/getenv "UNLEASH_URL"))
                :connection (:status unleash-info)
                :features (get-in unleash-info [:data :features] [])}}))
-
-(defn enabled?
-  "Consulta usada pelos handlers para mudar comportamento em tempo de execução."
-  [flag-name]
-  (boolean (get-in @local-flags [flag-name :enabled])))
 
 (defn known-flag? [flag-name]
   (contains? @local-flags flag-name))

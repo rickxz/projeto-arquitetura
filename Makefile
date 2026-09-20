@@ -1,4 +1,4 @@
-.PHONY: help start stop status switch-blue switch-green canary-10 canary-25 canary-50 canary-100 fault-v2 heal-v2 rolling start-unleash stop-unleash logs clean
+.PHONY: help start stop status reload switch-blue switch-green canary-10 canary-25 canary-50 canary-100 fault-v2 heal-v2 rolling start-unleash stop-unleash logs clean
 
 help:
 	@echo "=========================================================================="
@@ -9,6 +9,7 @@ help:
 	@echo "  make stop             - Encerra todos os containers"
 	@echo "  make status           - Exibe status dos containers e upstream ativo no Nginx"
 	@echo "  make logs             - Exibe logs em tempo real do proxy e backends"
+	@echo "  make reload           - Recarrega o Nginx (use apos recriar um container e ver 502)"
 	@echo ""
 	@echo "Cenário 1: Rolling Update (Atualização Gradual com Health Checks)"
 	@echo "  make rolling          - Executa demonstração passo a passo de Rolling Update"
@@ -37,6 +38,13 @@ start:
 stop:
 	docker compose down
 	-@docker compose -f docker-compose.unleash.yml down 2>/dev/null || true
+
+# O nginx OSS resolve os nomes do bloco upstream apenas na carga da config.
+# Se um container de backend for recriado (rebuild manual, crash + restart),
+# o proxy continua apontando para o IP antigo e responde 502 ate recarregar.
+reload:
+	@docker compose exec -T proxy nginx -s reload
+	@echo "==> [OK] Nginx recarregado (upstreams reresolvidos)."
 
 status:
 	@echo "--- Containers em Execução ---"

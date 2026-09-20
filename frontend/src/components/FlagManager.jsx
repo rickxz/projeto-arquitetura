@@ -121,7 +121,9 @@ export default function FlagManager({ onFlagChange }) {
       {/* Flag Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
         {Object.entries(flags).map(([key, flag]) => {
-          const isEnabled = flag.enabled
+          // No modo dual o Unleash manda: o valor que vale é o "effective".
+          const controladaPeloUnleash = flag.source === 'unleash'
+          const isEnabled = flag.effective ?? flag.enabled
           const isToggling = loadingFlag === key
 
           return (
@@ -145,19 +147,27 @@ export default function FlagManager({ onFlagChange }) {
                 {flag.description}
               </p>
 
+              {controladaPeloUnleash && (
+                <div className="mt-2 text-[11px] text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 rounded px-2 py-1">
+                  Controlada pelo <strong>Unleash</strong> — o servidor central sobrepõe o toggle local
+                  (local: {flag.enabled ? 'ligado' : 'desligado'}).
+                </div>
+              )}
+
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
                 <span className={`text-xs font-semibold ${isEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>
                   {isEnabled ? '● Ativo em Produção' : '○ Desativado (Invisível)'}
                 </span>
 
                 <button
-                  onClick={() => toggleFlag(key, isEnabled)}
-                  disabled={isToggling}
+                  onClick={() => toggleFlag(key, flag.enabled)}
+                  disabled={isToggling || controladaPeloUnleash}
+                  title={controladaPeloUnleash ? 'Esta flag está sendo controlada pelo Unleash' : undefined}
                   className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition ${
                     isEnabled
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
                       : 'bg-slate-700/60 text-slate-300 border border-slate-600 hover:bg-slate-700'
-                  }`}
+                  } ${controladaPeloUnleash ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {isEnabled ? (
                     <><ToggleRight className="w-4 h-4 text-emerald-400" /> Ligado</>
